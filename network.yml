@@ -1,0 +1,784 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: v1.0.0 | Millicom PaymentGateway AFS | sub-network | VPC Networking
+Parameters:
+  Environment:
+    Description: 'Env type: Dev, QA, Prod, etc.'
+    Type: String
+    Default: dev
+  AZ0:
+    Description: Availability Zone 0
+    Type: String
+  AZ1:
+    Description: Availability Zone 1
+    Type: String
+  CIDR:
+    Description: CIDR for creating a VPC
+    Type: String
+  SubnetCIDRPublic0:
+    Description: Subnet Range for VPC CIDR Public0
+    Type: String
+  SubnetCIDRPublic1:
+    Description: Subnet Range for VPC CIDR Public1
+    Type: String
+  SubnetCIDRPrivate0:
+    Description: Subnet Range for VPC CIDR Private0
+    Type: String
+  SubnetCIDRPrivate1:
+    Description: Subnet Range for VPC CIDR Private1
+    Type: String
+  DestinationSubnetCIDRPrivate0:
+    Description: Destination Subnet CIDR 1
+    Type: String
+  DestinationSubnetCIDRPrivate1:
+    Description: Destination Subnet CIDR 2
+    Type: String
+  PeerVPCID:
+    Description: VPC ID for Peered VPC
+    Type: String
+  ProjectSlug:
+    Description: 'Short, Machine Friendly Name for the project'
+    Type: String
+    Default: 'PaymentGateway-AFS'
+  VPCFlowLogBucket:
+    Description: S3 Bucket for the VPC Flow log
+    Type: String
+  VPCFlowLogS3KeyArn:
+     Description: 'KMS encryption key for S3 Bucket for VPC Flow Logs'
+     Type: String
+
+Conditions:
+  EnvIsProd: !Equals ["prod", !Ref Environment]
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref CIDR
+      EnableDnsHostnames: 'true'
+      EnableDnsSupport: 'true'
+      InstanceTenancy: default
+      Tags:
+      - Key: Cost Center
+        Value: PaymentGateway-AFS
+      - Key: Stack
+        Value: !Ref Environment
+      - Key: Name
+        Value: !Sub 'PaymentGateway-AFS-${Environment}-VPC'
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+      - Key: Cost Center
+        Value: PaymentGateway-AFS
+      - Key: Stack
+        Value: !Ref Environment
+      - Key: Name
+        Value: !Sub 'PaymentGateway-AFS-${Environment}-IGW'
+  VPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+  # Public subnet 0
+  RouteTablePublic0:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Cost Center
+        Value: PaymentGateway-AFS
+      - Key: Stack
+        Value: !Ref Environment
+      - Key: Name
+        Value: !Sub 'PaymentGateway-AFS-${Environment}-RouteTablePublic0'
+      - Key: Network
+        Value: Public
+  RouteAddDefaultPublic0:
+    Type: AWS::EC2::Route
+    DependsOn: VPCGatewayAttachment
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+      RouteTableId: !Ref RouteTablePublic0
+  PublicSubnet0:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Ref AZ0
+      CidrBlock: !Ref SubnetCIDRPublic0
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Cost Center
+        Value: PaymentGateway-AFS
+      - Key: Stack
+        Value: !Ref Environment
+      - Key: Name
+        Value: !Sub 'PaymentGateway-AFS-${Environment}-SubnetPublic0'
+      - Key: Network
+        Value: Public
+  RTAPublicSubnet0:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref RouteTablePublic0
+      SubnetId: !Ref PublicSubnet0
+  # Public subnet 1
+  RouteTablePublic1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Cost Center
+        Value: PaymentGateway-AFS
+      - Key: Stack
+        Value: !Ref Environment
+      - Key: Name
+        Value: !Sub 'PaymentGateway-AFS-${Environment}-RouteTablePublic1'
+      - Key: Network
+        Value: Public
+  RouteAddDefaultPublic1:
+    Type: AWS::EC2::Route
+    DependsOn: VPCGatewayAttachment
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+      RouteTableId: !Ref RouteTablePublic1
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Ref AZ1
+      CidrBlock: !Ref SubnetCIDRPublic1
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Cost Center
+        Value: PaymentGateway-AFS
+      - Key: Stack
+        Value: !Ref Environment
+      - Key: Name
+        Value: !Sub 'PaymentGateway-AFS-${Environment}-SubnetPublic1'
+      - Key: Network
+        Value: Public
+  RTAPublicSubnet1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref RouteTablePublic1
+      SubnetId: !Ref PublicSubnet1
+  # Private subnet 0
+  RouteTablePrivate0:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Cost Center
+        Value: PaymentGateway-AFS
+      - Key: Stack
+        Value: !Ref Environment
+      - Key: Name
+        Value: !Sub 'PaymentGateway-AFS-${Environment}-RouteTablePrivate0'
+      - Key: Network
+        Value: Private
+  PrivateSubnet0:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Ref AZ0
+      CidrBlock: !Ref SubnetCIDRPrivate0
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Cost Center
+        Value: PaymentGateway-AFS
+      - Key: Stack
+        Value: !Ref Environment
+      - Key: Name
+        Value: !Sub 'PaymentGateway-AFS-${Environment}-subnetPrivate0'
+      - Key: Network
+        Value: Private
+  RTAPrivateSubnet0:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref RouteTablePrivate0
+      SubnetId: !Ref PrivateSubnet0
+  # Private subnet 1
+  RouteTablePrivate1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Cost Center
+        Value: PaymentGateway-AFS
+      - Key: Stack
+        Value: !Ref Environment
+      - Key: Name
+        Value: !Sub 'PaymentGateway-AFS-${Environment}-RouteTablePrivate1'
+      - Key: Network
+        Value: Private
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Ref AZ1
+      CidrBlock: !Ref SubnetCIDRPrivate1
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Cost Center
+        Value: PaymentGateway-AFS
+      - Key: Stack
+        Value: !Ref Environment
+      - Key: Name
+        Value: !Sub 'PaymentGateway-AFS-${Environment}-subnetPrivate1'
+      - Key: Network
+        Value: Private
+  RTAPrivateSubnet1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref RouteTablePrivate1
+      SubnetId: !Ref PrivateSubnet1
+  VPCPeeringConnection:
+    Type: 'AWS::EC2::VPCPeeringConnection'
+    Properties:
+      VpcId: !Ref VPC
+      PeerVpcId: !Ref PeerVPCID
+      Tags:
+      - Key: Cost Center
+        Value: PaymentGateway-AFS
+      - Key: Stack
+        Value: !Ref Environment
+      - Key: Name
+        Value: !Sub 'PaymentGateway-AFS-${Environment}-VPCPeering'
+  #Each Route Table will have to two routes to two private subnets of Payment Gateway
+  PeeringRoute1:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      DestinationCidrBlock: !Ref DestinationSubnetCIDRPrivate0
+      RouteTableId: !Ref RouteTablePrivate1
+      VpcPeeringConnectionId: !Ref VPCPeeringConnection
+  PeeringRoute2:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      DestinationCidrBlock: !Ref DestinationSubnetCIDRPrivate0
+      RouteTableId: !Ref RouteTablePrivate0
+      VpcPeeringConnectionId: !Ref VPCPeeringConnection
+  PeeringRoute3:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      DestinationCidrBlock: !Ref DestinationSubnetCIDRPrivate1
+      RouteTableId: !Ref RouteTablePrivate1
+      VpcPeeringConnectionId: !Ref VPCPeeringConnection
+  PeeringRoute4:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      DestinationCidrBlock: !Ref DestinationSubnetCIDRPrivate1
+      RouteTableId: !Ref RouteTablePrivate0
+      VpcPeeringConnectionId: !Ref VPCPeeringConnection
+
+ ########
+ #Security group
+ ########
+###Egress
+  SgRuleEngineLambda:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub '${ProjectSlug}-${Environment}-SgRuleEngineLambda'
+      GroupDescription: !Sub 'Private Lambda Security Group for the ${ProjectSlug} ${Environment} Environment'
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Cost Center
+          Value: PaymentGateway-AFS
+        - Key: Stack
+          Value: !Ref Environment
+        - Key: Name
+          Value: !Sub '${ProjectSlug}-${Environment}-SgRuleEngineLambda'
+  SgTransactionDataPoller:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPC
+      GroupDescription: Allow AFS Transaction Data Poller Lambda access to PaymentGateway RDS MySQL
+      Tags:
+      - Key: Cost Center
+        Value: PaymentGateway-AFS
+      - Key: Stack
+        Value: !Ref Environment
+      - Key: Name
+        Value: !Sub 'PaymentGateway-AFS-${Environment}-SgTransactionDataPoller'
+  SgTransactionDataTransformationProcessor:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPC
+      GroupDescription: Transactions-Data-Transformation-Processor Security Group
+      Tags:
+      - Key: Cost Center
+        Value: PaymentGateway-AFS
+      - Key: Stack
+        Value: !Ref Environment
+      - Key: Name
+        Value: !Sub 'PaymentGateway-AFS-${Environment}-SgTransactionDataTransformationProcessor'
+  SgKinesisFirehose:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPC
+      GroupDescription: Kinesis Firehose Security Group
+      Tags:
+      - Key: Cost Center
+        Value: PaymentGateway-AFS
+      - Key: Stack
+        Value: !Ref Environment
+      - Key: Name
+        Value: !Sub 'PaymentGateway-AFS-${Environment}-SgKinesisFirehose'
+  SgKinesisFirehoseEgress:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      IpProtocol: tcp
+      FromPort: 443
+      ToPort: 443
+      DestinationSecurityGroupId:
+        Fn::GetAtt:
+        - SgElasticSearch
+        - GroupId
+      GroupId:
+        Fn::GetAtt:
+        - SgKinesisFirehose
+        - GroupId
+  SgElasticSearch:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPC
+      GroupDescription: Allow Access from Firehose and Lambda to Query Elastic Search Data
+      Tags:
+      - Key: Cost Center
+        Value: PaymentGateway-AFS
+      - Key: Stack
+        Value: !Ref Environment
+      - Key: Name
+        Value: !Sub 'PaymentGateway-AFS-${Environment}-SgElasticSearch'
+  SGElasticSearchIngress1:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      IpProtocol: tcp
+      FromPort: 443
+      ToPort: 443
+      SourceSecurityGroupId:
+        Fn::GetAtt:
+        - SgKinesisFirehose
+        - GroupId
+      GroupId:
+        Fn::GetAtt:
+        - SgElasticSearch
+        - GroupId
+  SGElasticSearchIngress2:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      IpProtocol: tcp
+      FromPort: 443
+      ToPort: 443
+      SourceSecurityGroupId:
+        Fn::GetAtt:
+        - SgRuleEngineLambda
+        - GroupId
+      GroupId:
+        Fn::GetAtt:
+        - SgElasticSearch
+        - GroupId
+  SGElasticSearchIngress3:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      IpProtocol: tcp
+      FromPort: 443
+      ToPort: 443
+      SourceSecurityGroupId:
+        Fn::GetAtt:
+        - SgKinesisFirehoseChargeBack
+        - GroupId
+      GroupId:
+        Fn::GetAtt:
+        - SgElasticSearch
+        - GroupId
+  SGElasticSearchIngress4:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      IpProtocol: tcp
+      FromPort: 443
+      ToPort: 443
+      SourceSecurityGroupId:
+        Fn::GetAtt:
+        - SgChargeBackDataTransformationProcessor
+        - GroupId
+      GroupId:
+        Fn::GetAtt:
+        - SgElasticSearch
+        - GroupId
+  SGElasticSearchIngress5:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      IpProtocol: tcp
+      FromPort: 443
+      ToPort: 443
+      SourceSecurityGroupId:
+        Fn::GetAtt:
+        - SgBastionHost
+        - GroupId
+      GroupId:
+        Fn::GetAtt:
+        - SgElasticSearch
+        - GroupId
+  SGElasticSearchIngress6:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      IpProtocol: tcp
+      FromPort: 443
+      ToPort: 443
+      SourceSecurityGroupId:
+        Fn::GetAtt:
+        - SgTransactionDataPoller
+        - GroupId
+      GroupId:
+        Fn::GetAtt:
+        - SgElasticSearch
+        - GroupId
+  SgKinesisFirehoseVPCEndpoint:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPC
+      GroupDescription: Allow Access from Firehose and Lambda to Query Elastic Search Data
+      Tags:
+      - Key: Cost Center
+        Value: PaymentGateway-AFS
+      - Key: Stack
+        Value: !Ref Environment
+      - Key: Name
+        Value: !Sub 'PaymentGateway-AFS-${Environment}-SgKinesisFirehoseVPCEndpoint'
+
+  SgKinesisFirehoseVPCEndpointIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      IpProtocol: tcp
+      FromPort: 443
+      ToPort: 443
+      SourceSecurityGroupId:
+        Fn::GetAtt:
+        - SgTransactionDataPoller
+        - GroupId
+      GroupId:
+        Fn::GetAtt:
+        - SgKinesisFirehoseVPCEndpoint
+        - GroupId
+  SgKinesisFirehoseVPCEndpointIngress2:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      IpProtocol: tcp
+      FromPort: 443
+      ToPort: 443
+      SourceSecurityGroupId:
+        Fn::GetAtt:
+        - SgChargeBackDataPreProcessor
+        - GroupId
+      GroupId:
+        Fn::GetAtt:
+        - SgKinesisFirehoseVPCEndpoint
+        - GroupId
+  SgKinesisFirehoseVPCEndpointEgress:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      IpProtocol: tcp
+      FromPort: 443
+      ToPort: 443
+      DestinationSecurityGroupId:
+        Fn::GetAtt:
+        - SgKinesisFirehose
+        - GroupId
+      GroupId:
+        Fn::GetAtt:
+        - SgKinesisFirehoseVPCEndpoint
+        - GroupId
+  SgKinesisFirehoseVPCEndpointEgress2:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      IpProtocol: tcp
+      FromPort: 443
+      ToPort: 443
+      DestinationSecurityGroupId:
+        Fn::GetAtt:
+        - SgKinesisFirehoseChargeBack
+        - GroupId
+      GroupId:
+        Fn::GetAtt:
+        - SgKinesisFirehoseVPCEndpoint
+        - GroupId
+        
+  KinesisFirehoseEndpoint:
+    Type: 'AWS::EC2::VPCEndpoint'
+    Properties:
+      SubnetIds:
+        - !Ref PrivateSubnet0
+        - !If [EnvIsProd, !Ref PrivateSubnet1, !Ref 'AWS::NoValue']
+      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.kinesis-firehose'
+      VpcEndpointType: "Interface"
+      PrivateDnsEnabled: true
+      VpcId: !Ref VPC
+      SecurityGroupIds:
+        Fn::Split:
+          - ","
+          - !GetAtt SgKinesisFirehoseVPCEndpoint.GroupId
+  SgKinesisFirehoseChargeBack:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPC
+      GroupDescription: Chargeback Kinesis Firehose Security Group
+      Tags:
+      - Key: Cost Center
+        Value: PaymentGateway-AFS
+      - Key: Stack
+        Value: !Ref Environment
+      - Key: Name
+        Value: !Sub 'PaymentGateway-AFS-${Environment}-SgKinesisFirehoseChargeBack'
+  SgKinesisFirehoseChargeBackEgress:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      IpProtocol: tcp
+      FromPort: 443
+      ToPort: 443
+      DestinationSecurityGroupId:
+        Fn::GetAtt:
+        - SgElasticSearch
+        - GroupId
+      GroupId:
+        Fn::GetAtt:
+        - SgKinesisFirehoseChargeBack
+        - GroupId
+  SgChargeBackDataPreProcessor:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPC
+      GroupDescription: Allow Pre Process to talk with ChargeBack Firehose
+      Tags:
+      - Key: Cost Center
+        Value: PaymentGateway-AFS
+      - Key: Stack
+        Value: !Ref Environment
+      - Key: Name
+        Value: !Sub 'PaymentGateway-AFS-${Environment}-SgChargeBackDataPreProcessor'
+  SgChargeBackDataTransformationProcessor:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPC
+      GroupDescription: ChargeBack-Data-Transformation-Processor Security Group
+      Tags:
+      - Key: Cost Center
+        Value: PaymentGateway-AFS
+      - Key: Stack
+        Value: !Ref Environment
+      - Key: Name
+        Value: !Sub 'PaymentGateway-AFS-${Environment}-SgChargeBackDataTransformationProcessor'
+  S3VPCEndpoint:
+    Type: 'AWS::EC2::VPCEndpoint'
+    Properties:
+      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.s3'
+      VpcEndpointType: "Gateway"
+      RouteTableIds:
+        - !Ref RouteTablePrivate0
+        - !Ref RouteTablePrivate1
+      VpcId: !Ref VPC
+  SgBastionHost:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: "Proxy server security group"
+      GroupDescription: "Will allow certain access to load kibana board and run container"
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp:  98.110.147.178/32
+        - IpProtocol: tcp
+          FromPort: 9200
+          ToPort: 9200
+          CidrIp:  98.110.147.178/32
+      SecurityGroupEgress:
+        - IpProtocol: All
+          CidrIp: 0.0.0.0/0
+      Tags:
+      - Key: Cost Center
+        Value: PaymentGateway-AFS
+      - Key: Stack
+        Value: !Ref Environment
+      - Key: Name
+        Value: !Sub 'PaymentGateway-AFS-${Environment}-SgBastionHost'
+  SgWarmerLambda:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPC
+      GroupDescription: Sg Warmer-Worker Lambda Security Group
+      Tags:
+      - Key: Cost Center
+        Value: PaymentGateway-AFS
+      - Key: Stack
+        Value: !Ref Environment
+      - Key: Name
+        Value: !Sub 'PaymentGateway-AFS-${Environment}-SgWarmerLambda'
+  VPCFlowLogReject:
+    Type: AWS::EC2::FlowLog
+    Properties:
+      DeliverLogsPermissionArn: !GetAtt VPCFlowLogRole.Arn
+      LogGroupName: !Ref VPCFlowLogGroup
+      ResourceId: !Ref VPC
+      ResourceType: VPC
+      TrafficType: REJECT
+      Tags:
+      - Key: Cost Center
+        Value: PaymentGateway-AFS
+      - Key: Stack
+        Value: !Ref Environment
+      - Key: Name
+        Value: !Sub 'PaymentGateway-AFS-${Environment}-VPCFlowLog'
+  VPCFlowLogAccept:
+    Type: AWS::EC2::FlowLog
+    Properties:
+      DeliverLogsPermissionArn: !GetAtt VPCFlowLogRole.Arn
+      ResourceId: !Ref VPC
+      ResourceType: VPC
+      TrafficType: ACCEPT
+      LogDestination: !GetAtt AFSVPCFlowLogBucket.Arn
+      LogDestinationType: s3
+      Tags:
+        - Key: Cost Center
+          Value: payment-gateway
+        - Key: Stack
+          Value: !Ref Environment
+        - Key: Name
+          Value: !Sub 'PaymentGateway-AFS-${Environment}-VPCFlowLogs'
+
+  VPCFlowLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub 'PaymentGateway-AFS-VPC-Flow-Log/${Environment}'
+
+  VPCFlowLogRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ProjectSlug}-${Environment}-VPCFlowLog-Role
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - vpc-flow-logs.amazonaws.com
+          Action:
+          - sts:AssumeRole
+
+  VPCFlowLogPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub ${ProjectSlug}-${Environment}-VPCFlowLog-Policy
+      PolicyDocument:
+          Statement:
+          - Effect: Allow
+            Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:DescribeLogGroups
+            - logs:DescribeLogStreams
+            - logs:PutLogEvents
+            Resource: '*'
+      Roles:
+      - Ref: VPCFlowLogRole
+
+  AFSVPCFlowLogBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName : !Sub '${VPCFlowLogBucket}-${Environment}'
+      AccessControl: LogDeliveryWrite
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: 'aws:kms'
+              KMSMasterKeyID: !Ref VPCFlowLogS3KeyArn
+      Tags:
+      - Key: Cost Center
+        Value: payment-gateway
+      - Key: Stack
+        Value: !Ref Environment
+      - Key: Name
+        Value: !Sub 'PaymentGateway-AFS-VPCFlowLog-${Environment}'
+  
+  AFSVPCFlowLogBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref AFSVPCFlowLogBucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: "SecureSocketLayerPolicy"
+            Action:
+              - 's3:*'
+            Effect: Deny
+            Resource:
+              - !Sub arn:aws:s3:::${VPCFlowLogBucket}-${Environment}
+              - !Sub arn:aws:s3:::${VPCFlowLogBucket}-${Environment}/*
+            Condition:
+              Bool:
+                aws:SecureTransport: 'false'
+            Principal: "*"
+          - Sid: AWSLogDeliveryWrite
+            Effect: Allow
+            Principal:
+              Service: delivery.logs.amazonaws.com
+            Action: s3:PutObject
+            Resource: !Sub "arn:aws:s3:::${VPCFlowLogBucket}-${Environment}/AWSLogs/${AWS::AccountId}/*"
+            Condition:
+              StringEquals:
+                s3:x-amz-acl: bucket-owner-full-control
+                aws:SourceAccount: !Sub '${AWS::AccountId}'
+              ArnLike:
+                aws:SourceArn: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*"
+          - Sid: AWSLogDeliveryAclCheck
+            Effect: Allow
+            Principal:
+              Service: delivery.logs.amazonaws.com
+            Action: s3:GetBucketAcl
+            Resource: !Sub "arn:aws:s3:::${VPCFlowLogBucket}-${Environment}"
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Sub '${AWS::AccountId}'
+              ArnLike:
+                aws:SourceArn: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*"
+
+Outputs:
+  PublicSubnet0:
+    Description: ID for PublicSubnet0
+    Value: !Ref PublicSubnet0
+  PublicSubnet1:
+    Description: ID for PublicSubnet1
+    Value: !Ref PublicSubnet1
+  PrivateSubnet0:
+    Description: ID for PrivateSubnet0
+    Value: !Ref PrivateSubnet0
+  PrivateSubnet1:
+    Description: ID for PrivateSubnet1
+    Value: !Ref PrivateSubnet1
+  VpcId:
+    Description: VPC ID
+    Value: !Ref VPC 
+  RuleEngineLambdaSecurityGroup:
+    Value: !Ref SgRuleEngineLambda
+    Description: Security Group for Rule Engine Lambdafunction
+  SgTransactionDataPoller:
+    Description: Security Group for DataTransaction Poller
+    Value: !Ref SgTransactionDataPoller
+  SgTransactionDataTransformationProcessor:
+    Description: Security Group for TransactionDataTransformationProcessor 
+    Value: !Ref SgTransactionDataTransformationProcessor
+  SgKinesisFirehose:
+    Description: Security Group for Kinesis Firehose
+    Value: !Ref SgKinesisFirehose
+  SgElasticSearch:
+    Description: Security Group for Elastic Search
+    Value: !Ref SgElasticSearch
+  SgChargeBackDataPreProcessor:
+    Description: Security Group for Data Pre Processor
+    Value: !Ref SgChargeBackDataPreProcessor
+  SgKinesisFirehoseChargeBack:
+    Description: Security Group for Kinesis Chargeback
+    Value: !Ref SgKinesisFirehoseChargeBack
+  SgChargeBackDataTransformationProcessor:
+    Description: Security Group for ChargeBackData Transformation Lambda 
+    Value: !Ref SgChargeBackDataTransformationProcessor
+  SgBastionHost:
+    Description: Security Group for Bastion Host
+    Value: !Ref SgBastionHost
+  SgWarmerWorkerLambda:
+    Description: Security Group for Warmer Worker Lambda
+    Value: !Ref SgWarmerLambda
