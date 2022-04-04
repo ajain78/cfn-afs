@@ -1,0 +1,152 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: v1.0.0 | Millicom PaymentGateway AFS | Network master | Network Master Cloudformation Template
+Parameters:
+  Environment:
+    Description: 'Env type: Dev, QA, Prod, etc.'
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - qa
+      - uat
+      - prod
+  NetworkStackURL:
+    Description: Source URL+Stack Version with trailing/
+    Type: String
+    Default: https://127.0.0.1/path/to/cloudformation/templates/
+  CIDR:
+    Description: CIDR for creating a VPC
+    Type: String
+  SubnetCIDRPublic0:
+    Description: Subnet Range for VPC CIDR Public0
+    Type: String
+  SubnetCIDRPublic1:
+    Description: Subnet Range for VPC CIDR Public1
+    Type: String
+  SubnetCIDRPrivate0:
+    Description: Subnet Range for VPC CIDR Private0
+    Type: String
+  SubnetCIDRPrivate1:
+    Description: Subnet Range for VPC CIDR Private1
+    Type: String
+  DestinationSubnetCIDRPrivate0:
+    Description: Destination Subnet CIDR 1
+    Type: String
+  DestinationSubnetCIDRPrivate1:
+    Description: Destination Subnet CIDR 2
+    Type: String
+  PeerVPCID:
+    Description: VPC ID for Peered VPC
+    Type: String
+  VPCFlowLogS3KeyArn:
+    Description: KMS Key ARN for VPC Flow Log S3 Bucket 
+    Type: String
+  VPCFlowLogBucketName:
+    Description: S3 Bucket for the VPC Flow log
+    Type: String
+    Default: paymentgateway-afs-vpc-flow-log-bucket  
+
+
+Resources:
+  NetworkStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub '${NetworkStackURL}sub-network.yml'
+      Parameters:
+        Environment: !Ref Environment
+        CIDR: !Ref CIDR
+        VPCFlowLogS3KeyArn: !Ref VPCFlowLogS3KeyArn
+        VPCFlowLogBucket: !Ref VPCFlowLogBucketName
+        SubnetCIDRPublic0: !Ref SubnetCIDRPublic0
+        SubnetCIDRPublic1: !Ref SubnetCIDRPublic1
+        SubnetCIDRPrivate0: !Ref SubnetCIDRPrivate0
+        SubnetCIDRPrivate1: !Ref SubnetCIDRPrivate1
+        DestinationSubnetCIDRPrivate0: !Ref DestinationSubnetCIDRPrivate0
+        DestinationSubnetCIDRPrivate1: !Ref DestinationSubnetCIDRPrivate1
+        PeerVPCID: !Ref PeerVPCID
+        AZ0: !Select [ '0', !GetAZs '' ]
+        AZ1: !Select [ '1', !GetAZs '' ]
+      Tags:
+      - Key: Cost Center
+        Value: PaymentGateway-AFS
+      - Key: Stack
+        Value: !Ref Environment
+      - Key: Name
+        Value: !Sub 'PaymentGateway-AFS-${Environment}-NetworkStack'
+
+Outputs:
+  PublicSubnet0:
+    Description: ID for PublicSubnet0
+    Value: !GetAtt NetworkStack.Outputs.PublicSubnet0
+    Export:
+      Name: !Sub "${AWS::StackName}-PublicSubnet0"
+  PublicSubnet1:
+    Description: ID for PublicSubnet1
+    Value: !GetAtt NetworkStack.Outputs.PublicSubnet1
+    Export:
+      Name: !Sub "${AWS::StackName}-PublicSubnet1"
+  PrivateSubnet0:
+    Description: ID for PrivateSubnet0
+    Value: !GetAtt NetworkStack.Outputs.PrivateSubnet0
+    Export:
+      Name: !Sub "${AWS::StackName}-PrivateSubnet0"
+  PrivateSubnet1:
+    Description: ID for PrivateSubnet1
+    Value: !GetAtt NetworkStack.Outputs.PrivateSubnet1
+    Export:
+      Name: !Sub "${AWS::StackName}-PrivateSubnet1"
+  VpcId:
+    Description: VPC ID
+    Value: !GetAtt NetworkStack.Outputs.VpcId
+    Export:
+      Name: !Sub "${AWS::StackName}-VPCID"
+  RuleEngineLambdaSecurityGroup:
+    Value: !GetAtt NetworkStack.Outputs.RuleEngineLambdaSecurityGroup
+    Description: Security Group for Lambdafunction
+    Export:
+      Name: !Sub "${AWS::StackName}-RuleEngineLambdaSecurityGroup"
+  SgTransactionDataPoller:
+    Description: DataTransaction Poller
+    Value: !GetAtt NetworkStack.Outputs.SgTransactionDataPoller
+    Export:
+      Name: !Sub "${AWS::StackName}-SgTransactionDataPoller"
+  SgTransactionDataTransformationProcessor:
+    Description: DataTransaction Poller
+    Value: !GetAtt NetworkStack.Outputs.SgTransactionDataTransformationProcessor
+    Export:
+      Name: !Sub "${AWS::StackName}-SgTransactionDataTransformationProcessor"
+  SgKinesisFirehose:
+    Description: Kinesis Firehose SG
+    Value: !GetAtt NetworkStack.Outputs.SgKinesisFirehose
+    Export:
+      Name: !Sub "${AWS::StackName}-SgKinesisFirehose"
+  SgElasticSearch:
+    Description: Elastic Search Security Group
+    Value: !GetAtt NetworkStack.Outputs.SgElasticSearch
+    Export:
+      Name: !Sub "${AWS::StackName}-SgElasticSearch"
+  SgKinesisFirehoseChargeBack:
+    Description: Security Group for Kinesis Chargeback
+    Value: !GetAtt NetworkStack.Outputs.SgKinesisFirehoseChargeBack
+    Export:
+      Name: !Sub "${AWS::StackName}-SgKinesisFirehoseChargeBack"
+  SgChargeBackDataPreProcessor:
+    Description: Security Group for  Data PreProcessor
+    Value: !GetAtt NetworkStack.Outputs.SgChargeBackDataPreProcessor
+    Export:
+      Name: !Sub "${AWS::StackName}-SgChargeBackDataPreProcessor"
+  SgChargeBackDataTransformationProcessor:
+    Description: Security Group for ChargeBackData Transformation Lambda 
+    Value: !GetAtt NetworkStack.Outputs.SgChargeBackDataTransformationProcessor
+    Export:
+      Name: !Sub "${AWS::StackName}-SgChargeBackDataTransformationProcessor"
+  SgBastionHost:
+    Description: Security Group for ChargeBack Transformation Lambda 
+    Value: !GetAtt NetworkStack.Outputs.SgBastionHost
+    Export:
+      Name: !Sub "${AWS::StackName}-SgBastionHost"
+  SgWarmerWorkerLambda:
+    Description: Security Group for Warmer Worker
+    Value: !GetAtt NetworkStack.Outputs.SgWarmerWorkerLambda
+    Export:
+      Name: !Sub "${AWS::StackName}-SgWarmerWorkerLambda"
